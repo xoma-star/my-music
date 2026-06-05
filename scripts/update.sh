@@ -12,9 +12,16 @@ echo "[update] Скачиваем новые треки..."
 yt-dlp \
   --extract-audio \
   --audio-format best \
+  --convert-thumbnails jpg \
   --embed-thumbnail \
   --embed-metadata \
   --download-archive "$MUSIC_DIR/.archive" \
+  --retries 10 \
+  --fragment-retries 10 \
+  --throttled-rate 100K \
+  --sleep-requests 1 \
+  --sleep-interval 2 \
+  --max-sleep-interval 5 \
   -o "$MUSIC_DIR/%(artist)s - %(title)s.%(ext)s" \
   "$PLAYLIST"
 

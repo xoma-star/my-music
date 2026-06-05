@@ -50,7 +50,7 @@ async function main() {
     const ext = path.extname(file).toLowerCase();
 
     try {
-      const { common, format } = await mm.parseFile(file, { skipCovers: false });
+      const { common, format } = await mm.parseFile(file, { skipCovers: false, duration: true });
 
       const cover = mm.selectCover(common.picture);
       let hasCover = false;
