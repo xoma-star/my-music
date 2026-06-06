@@ -95,12 +95,25 @@ mkdir -p "$MUSIC_DIR" "$CACHE_DIR"
 
 # ── 10. Скачать плейлист ─────────────────
 echo "==> Скачивание плейлиста (это займёт время)"
+COOKIES_FILE="$CACHE_DIR/cookies.txt"
+COOKIE_ARGS=()
+if [ -f "$COOKIES_FILE" ]; then
+  COOKIE_ARGS=(--cookies "$COOKIES_FILE")
+else
+  echo "==> ВНИМАНИЕ: $COOKIES_FILE не найден."
+  echo "    Экспортируй куки YouTube в этот файл перед первым запуском:"
+  echo "    1. Установи расширение 'Get cookies.txt LOCALLY' в Chrome/Firefox"
+  echo "    2. Зайди на youtube.com, экспортируй куки"
+  echo "    3. Скопируй файл на VPS: scp cookies.txt root@<IP>:$COOKIES_FILE"
+fi
 yt-dlp \
   --extract-audio \
   --audio-format best \
   --embed-thumbnail \
   --embed-metadata \
   --download-archive "$MUSIC_DIR/.archive" \
+  --js-runtimes node \
+  "${COOKIE_ARGS[@]}" \
   -o "$MUSIC_DIR/%(artist)s - %(title)s.%(ext)s" \
   "$PLAYLIST"
 

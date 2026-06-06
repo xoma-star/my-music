@@ -7,8 +7,17 @@ PLAYLIST="https://music.youtube.com/playlist?list=PLV6KRYjwKOT664Ex6BsUGNfOsKIR9
 MUSIC_DIR="/srv/music"
 CACHE_DIR="/srv/cache"
 APP_DIR="/opt/player"
+COOKIES_FILE="/srv/cache/cookies.txt"
 
 echo "[update] Скачиваем новые треки..."
+
+COOKIE_ARGS=()
+if [ -f "$COOKIES_FILE" ]; then
+  COOKIE_ARGS=(--cookies "$COOKIES_FILE")
+else
+  echo "[update] ВНИМАНИЕ: $COOKIES_FILE не найден. Экспортируй куки YouTube в этот файл." >&2
+fi
+
 yt-dlp \
   --extract-audio \
   --audio-format best \
@@ -22,6 +31,8 @@ yt-dlp \
   --sleep-requests 1 \
   --sleep-interval 2 \
   --max-sleep-interval 5 \
+  --js-runtimes node \
+  "${COOKIE_ARGS[@]}" \
   -o "$MUSIC_DIR/%(artist)s - %(title)s.%(ext)s" \
   "$PLAYLIST"
 
