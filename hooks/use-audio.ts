@@ -5,9 +5,12 @@ import { usePlayerStore } from '@/store/player';
 import { setAudioEl } from '@/lib/audio';
 import type { Track } from '@/types';
 
+const PREFETCH_COUNT = 5;
+
 export function useAudio() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevIdRef = useRef<string | undefined>(undefined);
+  const prefetchRef = useRef<Map<string, HTMLAudioElement>>(new Map());
 
   const { playing, vol, muted, setTime, setPlaying } = usePlayerStore(
     useShallow((s) => ({
@@ -35,6 +38,8 @@ export function useAudio() {
       audio.pause();
       audio.src = '';
       setAudioEl(null);
+      for (const a of prefetchRef.current.values()) a.src = '';
+      prefetchRef.current.clear();
     };
   }, []);
 
@@ -64,17 +69,45 @@ export function useAudio() {
     audio.muted = muted;
   }, [vol, muted]);
 
+  // Evict prefetch entries that fell out of the upcoming window
+  useEffect(() => {
+    const { queue, pos } = usePlayerStore.getState();
+    const nextSet = new Set(
+      Array.from({ length: PREFETCH_COUNT }, (_, i) => queue[(pos + 1 + i) % queue.length])
+        .filter(Boolean),
+    );
+    for (const [id, a] of prefetchRef.current) {
+      if (!nextSet.has(id)) { a.src = ''; prefetchRef.current.delete(id); }
+    }
+  }, [currentId]);
+
   // Events
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const onTime = () => setTime(Math.floor(audio.currentTime));
     const onEnded = () => usePlayerStore.getState().next();
+    const onCanPlayThrough = () => {
+      const { queue, pos, tracks } = usePlayerStore.getState();
+      const trackIds = new Set(tracks.map((t) => t.id));
+      const cache = prefetchRef.current;
+      for (let i = 1; i <= PREFETCH_COUNT; i++) {
+        const id = queue[(pos + i) % queue.length];
+        if (id && !cache.has(id) && trackIds.has(id)) {
+          const a = new Audio();
+          a.preload = 'auto';
+          a.src = `/api/stream/${id}`;
+          cache.set(id, a);
+        }
+      }
+    };
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('canplaythrough', onCanPlayThrough);
     return () => {
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('canplaythrough', onCanPlayThrough);
     };
   }, [setTime]);
 

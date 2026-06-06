@@ -50,6 +50,8 @@ export async function GET(
   const mime = MIME[track.codec.toLowerCase()] ?? 'audio/mpeg';
   const rangeHeader = req.headers.get('range');
 
+  const CC = 'private, max-age=86400, immutable';
+
   if (rangeHeader) {
     const [start, end] = parseRange(rangeHeader, size);
     return new Response(nodeToWeb(fs.createReadStream(filePath, { start, end })), {
@@ -59,7 +61,7 @@ export async function GET(
         'Content-Range': `bytes ${start}-${end}/${size}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': String(end - start + 1),
-        'Cache-Control': 'no-store',
+        'Cache-Control': CC,
       },
     });
   }
@@ -70,7 +72,7 @@ export async function GET(
       'Content-Type': mime,
       'Accept-Ranges': 'bytes',
       'Content-Length': String(size),
-      'Cache-Control': 'no-store',
+      'Cache-Control': CC,
     },
   });
 }
