@@ -5,6 +5,7 @@ import { fmt } from '@/lib/data';
 import Art from '@/components/ui/Art';
 import Ic from '@/components/ui/Ic';
 import Slider from '@/components/ui/Slider';
+import RatingControl from '@/components/ui/RatingControl';
 
 export default function Player() {
   const {
@@ -15,6 +16,7 @@ export default function Player() {
     muted, toggleMuted,
     showQ, toggleShowQ,
     next, prev,
+    setRating,
   } = usePlayerStore(
     useShallow((s) => ({
       playing: s.playing,
@@ -32,6 +34,7 @@ export default function Player() {
       toggleShowQ: s.toggleShowQ,
       next: s.next,
       prev: s.prev,
+      setRating: s.setRating,
     })),
   );
 
@@ -47,6 +50,7 @@ export default function Player() {
           <div className="t">{cur.title}</div>
           <div className="a">{cur.artist}</div>
         </div>
+        <RatingControl trackId={cur.id} rating={cur.rating} onChange={setRating} />
       </div>
 
       {/* Controls */}

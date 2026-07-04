@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { seekAudio } from '@/lib/audio';
+import { weightedShuffleIds } from '@/lib/shuffle';
 import type { Track } from '@/types';
 
 const lsGet = <T>(key: string, def: T): T => {
@@ -58,6 +59,7 @@ interface PlayerStore {
   addToQueue: (id: string) => void;
   removeFromQueue: (idx: number) => void;
   flash: (msg: string) => void;
+  setRating: (id: string, rating: number) => void;
 }
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -76,7 +78,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     const { queue, pos } = get();
     const ids = new Set(tracks.map((t) => t.id));
     const validQueue = queue.filter((id) => ids.has(id));
-    const newQueue = validQueue.length > 0 ? validQueue : tracks.map((t) => t.id);
+    const newQueue = validQueue.length > 0 ? validQueue : weightedShuffleIds(tracks);
     set({ tracks, queue: newQueue, pos: Math.min(pos, newQueue.length - 1) });
   },
 
@@ -92,12 +94,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   shuffle: () => {
     const { tracks } = get();
     if (!tracks.length) return;
-    const ids = tracks.map((t) => t.id);
-    for (let i = ids.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [ids[i], ids[j]] = [ids[j], ids[i]];
-    }
-    set({ queue: ids, pos: 0, time: 0, playing: true });
+    set({ queue: weightedShuffleIds(tracks), pos: 0, time: 0, playing: true });
   },
 
   next: () => {
@@ -136,5 +133,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   flash: (msg) => {
     set({ toast: msg });
     setTimeout(() => set({ toast: null }), 1800);
+  },
+
+  setRating: (id, rating) => {
+    const clamped = Math.max(-5, Math.min(5, rating));
+    const weight = 2 ** clamped;
+    set((s) => ({
+      tracks: s.tracks.map((t) => (t.id === id ? { ...t, rating: clamped, weight } : t)),
+    }));
+    fetch(`/api/tracks/${id}/rating`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: clamped }),
+    }).catch(() => { /* optimistic update stands; next fetch reconciles */ });
   },
 }));

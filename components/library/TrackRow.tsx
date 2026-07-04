@@ -5,6 +5,7 @@ import { fmt } from '@/lib/data';
 import type { Track } from '@/types';
 import Art from '@/components/ui/Art';
 import Ic from '@/components/ui/Ic';
+import RatingControl from '@/components/ui/RatingControl';
 
 interface Props {
   track: Track;
@@ -13,13 +14,14 @@ interface Props {
 }
 
 export default function TrackRow({ track, index, showNumber = true }: Props) {
-  const { queue, pos, playing, playTrack, addToQueue } = usePlayerStore(
+  const { queue, pos, playing, playTrack, addToQueue, setRating } = usePlayerStore(
     useShallow((s) => ({
       queue: s.queue,
       pos: s.pos,
       playing: s.playing,
       playTrack: s.playTrack,
       addToQueue: s.addToQueue,
+      setRating: s.setRating,
     })),
   );
 
@@ -45,6 +47,7 @@ export default function TrackRow({ track, index, showNumber = true }: Props) {
         <div className="t">{track.title}</div>
         <div className="a">{track.artist}</div>
       </div>
+      <RatingControl trackId={track.id} rating={track.rating} onChange={setRating} />
       <div className="rowbtns">
         <button
           className="qadd"

@@ -20,6 +20,38 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Скрипты
+
+### Разворачивание на новом сервере
+
+`scripts/vps-setup.sh` — запускать один раз, от root, на чистом Ubuntu 22.04/24.04:
+
+```bash
+bash scripts/vps-setup.sh
+```
+
+Ставит Docker, Node.js 22, yt-dlp и Caddy, настраивает домен (DuckDNS-поддомен или `<ip>.sslip.io`), клонирует репозиторий в `/opt/player`, скачивает плейлист в `/srv/music`, сканирует библиотеку, поднимает контейнер (`docker compose up -d --build`) и добавляет в cron ежечасный запуск `scripts/update.sh`.
+
+### Обновление библиотеки (докачка новых треков)
+
+`scripts/update.sh` — скачивает новые треки из плейлиста и пересобирает индекс:
+
+```bash
+scripts/update.sh
+```
+
+Уже вызывается по cron раз в час (настраивается в `vps-setup.sh`), но можно запускать и вручную. Внутри — `yt-dlp` (докачка только новых видео из плейлиста, `--download-archive`) и `npm run scan`.
+
+### Пересканировать библиотеку без докачки
+
+Если новые треки уже лежат в `MUSIC_DIR` (например, добавлены вручную) и скачивать через yt-dlp не нужно — достаточно пересобрать `data/cache/library.json` и обложки:
+
+```bash
+MUSIC_DIR=/srv/music CACHE_DIR=/srv/cache npm run scan
+```
+
+Рейтинги треков (`data/cache/ratings.db`) при этом не трогаются — `scan` их не касается, они привязаны к `id` трека и переживают пересканирование.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

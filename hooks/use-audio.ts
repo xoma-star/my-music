@@ -2,8 +2,10 @@
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/store/player';
-import { setAudioEl } from '@/lib/audio';
+import { setAudioEl, reportPlayback } from '@/lib/audio';
 import type { Track } from '@/types';
+
+const MOBILE_QUERY = '(max-width: 639px)';
 
 const PREFETCH_COUNT = 5;
 
@@ -49,6 +51,12 @@ export function useAudio() {
     if (!audio || !currentId) return;
 
     if (prevIdRef.current !== currentId) {
+      const prevId = prevIdRef.current;
+      if (prevId) {
+        const prevTrack = usePlayerStore.getState().tracks.find((t) => t.id === prevId);
+        const duration = audio.duration || prevTrack?.durationSec || 0;
+        reportPlayback(prevId, audio.currentTime, duration);
+      }
       prevIdRef.current = currentId;
       audio.src = `/api/stream/${currentId}`;
       if (playing) audio.play().catch(() => setPlaying(false));
@@ -61,12 +69,18 @@ export function useAudio() {
     }
   }, [currentId, playing, setPlaying]);
 
-  // Volume / mute
+  // Volume / mute — on phones there's no in-app control, volume is system-managed
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.volume = vol;
-    audio.muted = muted;
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const apply = () => {
+      audio.volume = mq.matches ? 1 : vol;
+      audio.muted = mq.matches ? false : muted;
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [vol, muted]);
 
   // Evict prefetch entries that fell out of the upcoming window

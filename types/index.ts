@@ -11,4 +11,6 @@ export interface Track {
   bitrate?: number;
   hasCover: boolean;
   liked?: boolean;
+  rating: number;
+  weight: number;
 }
