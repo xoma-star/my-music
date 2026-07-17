@@ -6,6 +6,7 @@ import Art from '@/components/ui/Art';
 import Ic from '@/components/ui/Ic';
 import Slider from '@/components/ui/Slider';
 import RatingControl from '@/components/ui/RatingControl';
+import DownloadBadge from '@/components/ui/DownloadBadge';
 
 export default function Player() {
   const {
@@ -51,6 +52,7 @@ export default function Player() {
           <div className="a">{cur.artist}</div>
         </div>
         <RatingControl trackId={cur.id} rating={cur.rating} onChange={setRating} />
+        <DownloadBadge trackId={cur.id} />
       </div>
 
       {/* Controls */}

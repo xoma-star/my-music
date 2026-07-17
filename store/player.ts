@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { seekAudio } from '@/lib/audio';
 import { weightedShuffleIds } from '@/lib/shuffle';
+import { findPlayableIndex, isOnline } from '@/lib/offline';
+import { useOfflineStore } from '@/store/offline';
 import type { Track } from '@/types';
 
 const lsGet = <T>(key: string, def: T): T => {
@@ -94,12 +96,18 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   shuffle: () => {
     const { tracks } = get();
     if (!tracks.length) return;
-    set({ queue: weightedShuffleIds(tracks), pos: 0, time: 0, playing: true });
+    const pool = isOnline()
+      ? tracks
+      : tracks.filter((t) => useOfflineStore.getState().downloaded[t.id]);
+    if (!pool.length) { get().flash('Нет скачанных треков'); return; }
+    set({ queue: weightedShuffleIds(pool), pos: 0, time: 0, playing: true });
   },
 
   next: () => {
     const { queue, pos } = get();
-    set({ pos: (pos + 1) % queue.length, time: 0 });
+    const nextPos = findPlayableIndex(queue, pos, useOfflineStore.getState().downloaded, 1);
+    if (nextPos == null) { get().flash('Нет скачанных треков в очереди'); set({ playing: false }); return; }
+    set({ pos: nextPos, time: 0 });
   },
   prev: () => {
     const { time, queue, pos } = get();
@@ -107,7 +115,9 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       seekAudio(0);
       set({ time: 0 });
     } else {
-      set({ pos: (pos - 1 + queue.length) % queue.length, time: 0 });
+      const prevPos = findPlayableIndex(queue, pos, useOfflineStore.getState().downloaded, -1);
+      if (prevPos == null) { get().flash('Нет скачанных треков в очереди'); set({ playing: false }); return; }
+      set({ pos: prevPos, time: 0 });
     }
   },
   playTrack: (id) => {

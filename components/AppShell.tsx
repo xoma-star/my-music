@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore, lsLoad, lsSave } from '@/store/player';
+import { useOfflineStore, offlineLsLoad } from '@/store/offline';
 import { useAudio } from '@/hooks/use-audio';
 import Ic from '@/components/ui/Ic';
 import Player from '@/components/player/Player';
@@ -35,14 +36,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Hydrate from localStorage on mount
   useEffect(() => {
     usePlayerStore.setState(lsLoad());
+    useOfflineStore.setState(offlineLsLoad());
   }, []);
 
-  // Load tracks from API
+  // Register the app-shell service worker so a cold load with zero
+  // connectivity still opens (see public/sw.js) — audio itself is cached
+  // separately via Cache Storage in lib/offline.ts, not through this SW.
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => { /* offline app-shell just won't be available */ });
+    }
+  }, []);
+
+  // Load tracks from API, then kick off offline sync if the toggle is on
   useEffect(() => {
     fetch('/api/tracks')
       .then((r) => r.json())
-      .then((tracks: Track[]) => usePlayerStore.getState().setTracks(tracks))
+      .then((tracks: Track[]) => {
+        usePlayerStore.getState().setTracks(tracks);
+        if (useOfflineStore.getState().enabled) useOfflineStore.getState().syncMissing(tracks);
+      })
       .catch(() => { /* no music dir yet — library stays empty */ });
+  }, []);
+
+  // Connectivity restored — flush buffered rating reports and resume any
+  // interrupted offline sync
+  useEffect(() => {
+    const onOnline = () => {
+      useOfflineStore.getState().flushRatingReports();
+      if (useOfflineStore.getState().enabled) {
+        useOfflineStore.getState().syncMissing(usePlayerStore.getState().tracks);
+      }
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, []);
 
   // Pick a random backdrop once per page load

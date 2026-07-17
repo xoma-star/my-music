@@ -14,6 +14,8 @@ export const icons = {
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   sun: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>',
   moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" fill="currentColor"/>',
+  download: '<path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  check: '<path d="M5 12.5 10 17l9-10"/>',
 } as const;
 
 export type IconName = keyof typeof icons;

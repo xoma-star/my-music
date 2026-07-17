@@ -6,6 +6,7 @@ import type { Track } from '@/types';
 import Art from '@/components/ui/Art';
 import Ic from '@/components/ui/Ic';
 import RatingControl from '@/components/ui/RatingControl';
+import DownloadBadge from '@/components/ui/DownloadBadge';
 
 interface Props {
   track: Track;
@@ -48,6 +49,7 @@ export default function TrackRow({ track, index, showNumber = true }: Props) {
         <div className="a">{track.artist}</div>
       </div>
       <RatingControl trackId={track.id} rating={track.rating} onChange={setRating} />
+      <DownloadBadge trackId={track.id} />
       <div className="rowbtns">
         <button
           className="qadd"
