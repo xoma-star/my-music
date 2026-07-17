@@ -4,7 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/store/player';
 import { useOfflineStore } from '@/store/offline';
 import { setAudioEl, reportPlayback } from '@/lib/audio';
-import { streamUrl, findPlayableIndex, getCachedTrackBlobUrl } from '@/lib/offline';
+import { streamUrl, findPlayableIndex, getCachedTrackBlobUrl, isOnline } from '@/lib/offline';
 import type { Track } from '@/types';
 
 const MOBILE_QUERY = '(max-width: 639px)';
@@ -150,8 +150,18 @@ export function useAudio() {
       }
 
       const nextId = queue[nextPos];
+      const readyBlobUrl = blobUrlRef.current.get(nextId);
+      if (!isOnline() && !readyBlobUrl) {
+        // Downloaded but its blob URL hasn't resolved from Cache Storage yet — falling
+        // back to streamUrl would hit the network, which fails while offline, and would
+        // also wedge prevIdRef so the reactive effect below never retries this track.
+        // Leave src/prevIdRef untouched and let the "Playback control" effect (which can
+        // await the cache read) pick it up once pos changes.
+        usePlayerStore.setState({ pos: nextPos, time: 0 });
+        return;
+      }
       prevIdRef.current = nextId;
-      audio.src = blobUrlRef.current.get(nextId) || streamUrl(nextId);
+      audio.src = readyBlobUrl || streamUrl(nextId);
       audio.play().catch(() => usePlayerStore.getState().setPlaying(false));
       usePlayerStore.setState({ pos: nextPos, time: 0 });
     };
