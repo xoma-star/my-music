@@ -11,6 +11,15 @@ const MOBILE_QUERY = '(max-width: 639px)';
 
 const PREFETCH_COUNT = 5;
 
+// Chrome's automatic Media Session inference briefly drops the notification
+// whenever the audio element's src is swapped mid-track-change (the resource
+// selection algorithm fires a synchronous 'pause' before the new src can
+// start playing). Setting playbackState explicitly right alongside play()/
+// pause() calls sidesteps that race instead of waiting on implicit inference.
+const setMediaPlaybackState = (state: MediaSessionPlaybackState) => {
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state;
+};
+
 export function useAudio() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prevIdRef = useRef<string | undefined>(undefined);
@@ -77,11 +86,14 @@ export function useAudio() {
           if (src) blobUrlRef.current.set(currentId, src);
         }
         audio.src = src || streamUrl(currentId);
-        if (playing) audio.play().catch(() => setPlaying(false));
+        if (playing) {
+          audio.play().then(() => setMediaPlaybackState('playing')).catch(() => setPlaying(false));
+        }
       } else if (playing) {
-        audio.play().catch(() => setPlaying(false));
+        audio.play().then(() => setMediaPlaybackState('playing')).catch(() => setPlaying(false));
       } else {
         audio.pause();
+        setMediaPlaybackState('paused');
       }
     })();
 
@@ -163,7 +175,8 @@ export function useAudio() {
       }
       prevIdRef.current = nextId;
       audio.src = readyBlobUrl || streamUrl(nextId);
-      audio.play().catch(() => usePlayerStore.getState().setPlaying(false));
+      audio.play().then(() => setMediaPlaybackState('playing'))
+        .catch(() => usePlayerStore.getState().setPlaying(false));
       usePlayerStore.setState({ pos: nextPos, time: 0 });
     };
     const onCanPlayThrough = () => {
