@@ -103,11 +103,12 @@ export function useAudio() {
   }, [vol, muted]);
 
   // Evict prefetch entries (network audio + prepared blob URLs) that fell out
-  // of the upcoming window
+  // of the upcoming window. Includes the current track (i=0) so its blob URL
+  // (the one live in audio.src right now) never gets revoked out from under it.
   useEffect(() => {
     const { queue, pos } = usePlayerStore.getState();
     const nextSet = new Set(
-      Array.from({ length: PREFETCH_COUNT }, (_, i) => queue[(pos + 1 + i) % queue.length])
+      Array.from({ length: PREFETCH_COUNT + 1 }, (_, i) => queue[(pos + i) % queue.length])
         .filter(Boolean),
     );
     for (const [id, a] of prefetchRef.current) {
