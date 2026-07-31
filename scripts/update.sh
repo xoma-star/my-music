@@ -3,7 +3,7 @@
 # Запускается вручную или по cron.
 set -euo pipefail
 
-PLAYLIST="https://music.youtube.com/playlist?list=PLV6KRYjwKOT664Ex6BsUGNfOsKIR9iQaC"
+PLAYLIST="https://music.youtube.com/playlist?list=PLA804Lxu_lO4"
 MUSIC_DIR="/srv/music"
 CACHE_DIR="/srv/cache"
 APP_DIR="/opt/player"
