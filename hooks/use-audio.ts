@@ -28,6 +28,13 @@ export function useAudio() {
   // 'ended' handler can set them synchronously (see onEnded below). `null`
   // marks an in-flight resolution so we don't kick it off twice.
   const blobUrlRef = useRef<Map<string, string | null>>(new Map());
+  // True while we're deliberately swapping audio.src for a track change.
+  // Setting .src on a playing element fires a native 'pause' event before the
+  // new source starts — without this guard that would look identical to an
+  // external interruption (OS sleep, lost audio focus) and wrongly flip the
+  // store to paused. See onNativePause below.
+  const switchingRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const { playing, vol, muted, setTime, setPlaying } = usePlayerStore(
     useShallow((s) => ({
@@ -85,9 +92,14 @@ export function useAudio() {
           if (cancelled) { if (src) URL.revokeObjectURL(src); return; }
           if (src) blobUrlRef.current.set(currentId, src);
         }
+        switchingRef.current = true;
         audio.src = src || streamUrl(currentId);
         if (playing) {
-          audio.play().then(() => setMediaPlaybackState('playing')).catch(() => setPlaying(false));
+          audio.play()
+            .then(() => { switchingRef.current = false; setMediaPlaybackState('playing'); })
+            .catch(() => { switchingRef.current = false; setPlaying(false); });
+        } else {
+          switchingRef.current = false;
         }
       } else if (playing) {
         audio.play().then(() => setMediaPlaybackState('playing')).catch(() => setPlaying(false));
@@ -113,6 +125,58 @@ export function useAudio() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [vol, muted]);
+
+  // Screen Wake Lock while playing — audio alone doesn't stop a laptop/phone
+  // from going to sleep, and once the system suspends the audio pipeline dies
+  // with it (caught above by onNativePause). This is best-effort: the lock is
+  // auto-released by the browser whenever the tab is hidden, so it can't help
+  // background-tab playback, only the "screen times out while the player tab
+  // is on top" case.
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return;
+    let cancelled = false;
+    const release = () => {
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
+      sentinel?.release().catch(() => {});
+    };
+    const acquire = () => {
+      if (document.visibilityState !== 'visible') return;
+      navigator.wakeLock.request('screen').then((sentinel) => {
+        if (cancelled) { sentinel.release().catch(() => {}); return; }
+        wakeLockRef.current = sentinel;
+      }).catch(() => { /* unsupported/denied — best effort */ });
+    };
+    if (playing) acquire(); else release();
+    const onVisibility = () => { if (playing) acquire(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      release();
+    };
+  }, [playing]);
+
+  // Auto-pause when an audio output device disappears (e.g. Bluetooth
+  // headphones switching off). Browsers don't reliably fire a native 'pause'
+  // for this on their own — the OS just re-routes to the next output — so we
+  // watch the device list ourselves and stop playback on a drop.
+  useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    let prevCount: number | null = null;
+    const check = () => {
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        const count = devices.filter((d) => d.kind === 'audiooutput').length;
+        if (prevCount != null && count < prevCount && !audioRef.current?.paused) {
+          usePlayerStore.getState().setPlaying(false);
+        }
+        prevCount = count;
+      }).catch(() => { /* enumerateDevices unavailable without permission */ });
+    };
+    check();
+    navigator.mediaDevices.addEventListener('devicechange', check);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', check);
+  }, []);
 
   // Evict prefetch entries (network audio + prepared blob URLs) that fell out
   // of the upcoming window. Includes the current track (i=0) so its blob URL
@@ -174,9 +238,11 @@ export function useAudio() {
         return;
       }
       prevIdRef.current = nextId;
+      switchingRef.current = true;
       audio.src = readyBlobUrl || streamUrl(nextId);
-      audio.play().then(() => setMediaPlaybackState('playing'))
-        .catch(() => usePlayerStore.getState().setPlaying(false));
+      audio.play()
+        .then(() => { switchingRef.current = false; setMediaPlaybackState('playing'); })
+        .catch(() => { switchingRef.current = false; usePlayerStore.getState().setPlaying(false); });
       usePlayerStore.setState({ pos: nextPos, time: 0 });
     };
     const onCanPlayThrough = () => {
@@ -204,13 +270,28 @@ export function useAudio() {
         }
       }
     };
+    // The browser can pause the element on its own — OS sleep/resume, lost
+    // audio focus (phone call, another app), or the active output device
+    // disappearing (e.g. Bluetooth headphones switching off). Previously
+    // nothing listened for that, so the store kept reporting `playing: true`
+    // while audio had actually stopped: the UI looked live but was silent,
+    // and on phones the fix was to tap pause then play to force a resync.
+    // switchingRef distinguishes that from the synchronous 'pause' our own
+    // track-change src swap fires (see switchingRef comment above).
+    const onNativePause = () => {
+      if (switchingRef.current) return;
+      usePlayerStore.getState().setPlaying(false);
+      setMediaPlaybackState('paused');
+    };
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('canplaythrough', onCanPlayThrough);
+    audio.addEventListener('pause', onNativePause);
     return () => {
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('canplaythrough', onCanPlayThrough);
+      audio.removeEventListener('pause', onNativePause);
     };
   }, [setTime]);
 
