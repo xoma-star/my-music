@@ -277,9 +277,13 @@ export function useAudio() {
     // while audio had actually stopped: the UI looked live but was silent,
     // and on phones the fix was to tap pause then play to force a resync.
     // switchingRef distinguishes that from the synchronous 'pause' our own
-    // track-change src swap fires (see switchingRef comment above).
+    // track-change src swap fires (see switchingRef comment above). audio.ended
+    // covers a second false positive: browsers fire 'pause' before 'ended' when
+    // playback finishes naturally, which would otherwise flip playing to false
+    // right as onEnded is starting the next track, causing the reactive
+    // playback-control effect to immediately re-pause it.
     const onNativePause = () => {
-      if (switchingRef.current) return;
+      if (switchingRef.current || audio.ended) return;
       usePlayerStore.getState().setPlaying(false);
       setMediaPlaybackState('paused');
     };
