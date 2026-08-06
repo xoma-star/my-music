@@ -243,7 +243,14 @@ export function useAudio() {
       audio.play()
         .then(() => { switchingRef.current = false; setMediaPlaybackState('playing'); })
         .catch(() => { switchingRef.current = false; usePlayerStore.getState().setPlaying(false); });
-      usePlayerStore.setState({ pos: nextPos, time: 0 });
+      // Force playing back to true here, not just pos/time: the native 'pause'
+      // that precedes 'ended' (see onNativePause) can race ahead of switchingRef
+      // on a throttled background tab (screen-locked phone) — audio.ended may
+      // still read false when that pause fires, so onNativePause flips playing
+      // to false right before this runs. Since we're unconditionally starting
+      // the next track above, playing must be true regardless of that race, or
+      // the reactive playback-control effect immediately re-pauses this track.
+      usePlayerStore.setState({ pos: nextPos, time: 0, playing: true });
     };
     const onCanPlayThrough = () => {
       const { queue, pos, tracks } = usePlayerStore.getState();
