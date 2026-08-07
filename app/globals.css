@@ -434,6 +434,27 @@ a { color: inherit; text-decoration: none; }
 .offline-row .lbl { font-size: 14px; font-weight: 600; }
 .offline-row .sub2 { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 2px; }
 
+.sort-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.sort-row .sort-lbl { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.85); }
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-brd);
+  border-radius: 999px;
+}
+.seg button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,.7);
+  transition: background .2s, color .2s;
+}
+.seg button:hover { color: #fff; }
+.seg button.active { background: var(--accent); color: #fff; }
+
 /* ===== Rating ===== */
 .rating { display: flex; align-items: center; gap: 2px; flex: none; }
 

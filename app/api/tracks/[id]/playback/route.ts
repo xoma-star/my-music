@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getLibrary } from '@/lib/library';
 import { adjustRating } from '@/lib/ratings';
 
-const EARLY_SKIP_DELTA = -0.75;
+const EARLY_SKIP_DELTA = -0.3;
 const COMPLETION_BONUS = 0.15;
 
 export async function POST(

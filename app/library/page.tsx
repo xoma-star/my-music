@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/store/player';
@@ -11,11 +11,20 @@ const ROW_HEIGHT = 64;
 // Matches .list's padding: 8px
 const LIST_PADDING = 8;
 
+type SortMode = 'default' | 'rating-desc' | 'rating-asc';
+
 export default function LibraryPage() {
   const tracks = usePlayerStore((s) => s.tracks);
   const listRef = useRef<HTMLDivElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [sort, setSort] = useState<SortMode>('default');
+
+  const sortedTracks = useMemo(() => {
+    if (sort === 'default') return tracks;
+    const sign = sort === 'rating-desc' ? -1 : 1;
+    return [...tracks].sort((a, b) => sign * (a.rating - b.rating));
+  }, [tracks, sort]);
 
   const { offlineEnabled, downloaded, downloading } = useOfflineStore(
     useShallow((s) => ({ offlineEnabled: s.enabled, downloaded: s.downloaded, downloading: s.downloading })),
@@ -37,7 +46,7 @@ export default function LibraryPage() {
   }, []);
 
   const virtualizer = useVirtualizer({
-    count: tracks.length,
+    count: sortedTracks.length,
     getScrollElement: () => scrollEl,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
@@ -68,15 +77,29 @@ export default function LibraryPage() {
             </div>
           </div>
         </div>
+        <div className="sort-row">
+          <span className="sort-lbl">Сортировка</span>
+          <div className="seg">
+            <button className={sort === 'default' ? 'active' : ''} onClick={() => setSort('default')}>
+              По умолчанию
+            </button>
+            <button className={sort === 'rating-desc' ? 'active' : ''} onClick={() => setSort('rating-desc')}>
+              Рейтинг ↓
+            </button>
+            <button className={sort === 'rating-asc' ? 'active' : ''} onClick={() => setSort('rating-asc')}>
+              Рейтинг ↑
+            </button>
+          </div>
+        </div>
       </div>
-      {tracks.length > 0 && (
+      {sortedTracks.length > 0 && (
         <div
           ref={listRef}
           className="list glass refract"
           style={{ position: 'relative', height: virtualizer.getTotalSize() + LIST_PADDING * 2 }}
         >
           {virtualizer.getVirtualItems().map((vi) => {
-            const track = tracks[vi.index];
+            const track = sortedTracks[vi.index];
             return (
               <div
                 key={track.id}
