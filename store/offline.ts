@@ -15,6 +15,7 @@ interface RatingReport {
   id: string;
   playedSec: number;
   durationSec: number;
+  isSkip: boolean;
 }
 
 interface OfflineStore {
@@ -123,7 +124,7 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
       await fetch(`/api/tracks/${r.id}/playback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playedSec: r.playedSec, durationSec: r.durationSec }),
+        body: JSON.stringify({ playedSec: r.playedSec, durationSec: r.durationSec, isSkip: r.isSkip }),
         keepalive: true,
       }).catch(() => { /* best-effort rating signal */ });
     }

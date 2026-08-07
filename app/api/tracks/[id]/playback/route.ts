@@ -14,13 +14,14 @@ export async function POST(
   if (!track) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const body = (await req.json().catch(() => null)) as
-    | { playedSec?: number; durationSec?: number }
+    | { playedSec?: number; durationSec?: number; isSkip?: boolean }
     | null;
   const playedSec = typeof body?.playedSec === 'number' ? body.playedSec : 0;
   const durationSec =
     typeof body?.durationSec === 'number' && body.durationSec > 0
       ? body.durationSec
       : track.durationSec;
+  const isSkip = body?.isSkip === true;
 
   if (!durationSec) return NextResponse.json({ ok: true });
 
@@ -29,7 +30,7 @@ export async function POST(
 
   let delta = 0;
   if (playedSec >= durationSec * 0.5) delta = COMPLETION_BONUS;
-  else if (playedSec < earlySkipThreshold) delta = EARLY_SKIP_DELTA;
+  else if (isSkip && playedSec < earlySkipThreshold) delta = EARLY_SKIP_DELTA;
 
   if (delta === 0) return NextResponse.json({ ok: true });
 

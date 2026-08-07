@@ -11,17 +11,17 @@ export function seekAudio(t: number) {
   if (el) el.currentTime = t;
 }
 
-export function reportPlayback(id: string, playedSec: number, durationSec: number) {
+export function reportPlayback(id: string, playedSec: number, durationSec: number, isSkip: boolean) {
   if (!id || !durationSec) return;
   // No network — buffer it in memory and let AppShell's 'online' handler flush it later.
   if (!isOnline()) {
-    useOfflineStore.getState().bufferRatingReport({ id, playedSec, durationSec });
+    useOfflineStore.getState().bufferRatingReport({ id, playedSec, durationSec, isSkip });
     return;
   }
   fetch(`/api/tracks/${id}/playback`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playedSec, durationSec }),
+    body: JSON.stringify({ playedSec, durationSec, isSkip }),
     keepalive: true,
   }).catch(() => { /* best-effort rating signal */ });
 }

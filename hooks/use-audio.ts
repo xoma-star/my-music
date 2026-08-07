@@ -80,9 +80,10 @@ export function useAudio() {
       if (prevIdRef.current !== currentId) {
         const prevId = prevIdRef.current;
         if (prevId) {
-          const prevTrack = usePlayerStore.getState().tracks.find((t) => t.id === prevId);
+          const { tracks, lastChangeWasSkip } = usePlayerStore.getState();
+          const prevTrack = tracks.find((t) => t.id === prevId);
           const duration = audio.duration || prevTrack?.durationSec || 0;
-          reportPlayback(prevId, audio.currentTime, duration);
+          reportPlayback(prevId, audio.currentTime, duration, lastChangeWasSkip);
         }
         prevIdRef.current = currentId;
 
@@ -217,7 +218,7 @@ export function useAudio() {
       const endedId = queue[pos];
       const endedTrack = tracks.find((t) => t.id === endedId);
       const duration = audio.duration || endedTrack?.durationSec || 0;
-      reportPlayback(endedId, duration, duration);
+      reportPlayback(endedId, duration, duration, false);
 
       const nextPos = findPlayableIndex(queue, pos, useOfflineStore.getState().downloaded, 1);
       if (nextPos == null) {
@@ -234,7 +235,7 @@ export function useAudio() {
         // also wedge prevIdRef so the reactive effect below never retries this track.
         // Leave src/prevIdRef untouched and let the "Playback control" effect (which can
         // await the cache read) pick it up once pos changes.
-        usePlayerStore.setState({ pos: nextPos, time: 0 });
+        usePlayerStore.setState({ pos: nextPos, time: 0, lastChangeWasSkip: false });
         return;
       }
       prevIdRef.current = nextId;
@@ -250,7 +251,7 @@ export function useAudio() {
       // to false right before this runs. Since we're unconditionally starting
       // the next track above, playing must be true regardless of that race, or
       // the reactive playback-control effect immediately re-pauses this track.
-      usePlayerStore.setState({ pos: nextPos, time: 0, playing: true });
+      usePlayerStore.setState({ pos: nextPos, time: 0, playing: true, lastChangeWasSkip: false });
     };
     const onCanPlayThrough = () => {
       const { queue, pos, tracks } = usePlayerStore.getState();

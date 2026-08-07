@@ -44,6 +44,12 @@ interface PlayerStore {
   showQ: boolean;
   toast: string | null;
   dark: boolean | null;
+  // Whether the current pos change was a forward skip via the player's "next"
+  // button — only that counts against a track's rating. Going back with
+  // "prev", track selection from the library/queue, or shuffling to a fresh
+  // queue all reflect a deliberate choice, not a rejection of the track that
+  // was playing.
+  lastChangeWasSkip: boolean;
 
   setTracks: (tracks: Track[]) => void;
   setPlaying: (v: boolean) => void;
@@ -75,6 +81,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
   showQ: false,
   toast: null,
   dark: null,
+  lastChangeWasSkip: false,
 
   setTracks: (tracks) => {
     const { queue, pos } = get();
@@ -100,14 +107,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       ? tracks
       : tracks.filter((t) => useOfflineStore.getState().downloaded[t.id]);
     if (!pool.length) { get().flash('Нет скачанных треков'); return; }
-    set({ queue: weightedShuffleIds(pool), pos: 0, time: 0, playing: true });
+    set({ queue: weightedShuffleIds(pool), pos: 0, time: 0, playing: true, lastChangeWasSkip: false });
   },
 
   next: () => {
     const { queue, pos } = get();
     const nextPos = findPlayableIndex(queue, pos, useOfflineStore.getState().downloaded, 1);
     if (nextPos == null) { get().flash('Нет скачанных треков в очереди'); set({ playing: false }); return; }
-    set({ pos: nextPos, time: 0 });
+    set({ pos: nextPos, time: 0, lastChangeWasSkip: true });
   },
   prev: () => {
     const { time, queue, pos } = get();
@@ -117,17 +124,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     } else {
       const prevPos = findPlayableIndex(queue, pos, useOfflineStore.getState().downloaded, -1);
       if (prevPos == null) { get().flash('Нет скачанных треков в очереди'); set({ playing: false }); return; }
-      set({ pos: prevPos, time: 0 });
+      set({ pos: prevPos, time: 0, lastChangeWasSkip: false });
     }
   },
   playTrack: (id) => {
     const { queue } = get();
     const i = queue.indexOf(id);
     if (i >= 0) {
-      set({ pos: i, time: 0, playing: true });
+      set({ pos: i, time: 0, playing: true, lastChangeWasSkip: false });
     } else {
       const newQueue = [...queue, id];
-      set({ queue: newQueue, pos: newQueue.length - 1, time: 0, playing: true });
+      set({ queue: newQueue, pos: newQueue.length - 1, time: 0, playing: true, lastChangeWasSkip: false });
     }
   },
   addToQueue: (id) => {
